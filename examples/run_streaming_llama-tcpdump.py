@@ -73,6 +73,8 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
     print(" ".join(generated_text[pos:]), flush=True)
     return past_key_values
 
+system_prompt = f"The following is a part of a recent tcpdump. Analyze the content, and output 'Result=1' only if it is certain that there are anomalies, otherwise ouput 'Result=0'."
+
 @torch.no_grad()
 def streaming_inference(model, tokenizer, kv_cache=None, max_gen_len=1000):
     past_key_values = None
@@ -84,10 +86,18 @@ def streaming_inference(model, tokenizer, kv_cache=None, max_gen_len=1000):
         #prompt = f"[USER] The following is a portion of the results of a recent tcpdump run. Review the flow and content, and if you suspect a malicious hacking attempt, write the details with the Result=1 symbol, and in all other cases, just output Result=0 and exit. (You must not write any additional answers when Result=0 is present.)\n{batch_text}\n\n[ASSISTANT]\n"
         #prompt = f"[USER] The following is a part of a recent tcpdump. Analyze the content and if it is certain that there is a malicious hacking attempt, write the details with the Result=1 symbol, and in all other cases, just output Result=0 and exit. (Do not write any additional answers when Result=0 is present.)\n{batch_text}\n\n[ASSISTANT]\n"
         #prompt = f"[USER] The following is a part of a recent tcpdump. Analyze the content and only describe the details with the Result=1 symbol if it is certain that there is a malicious hacking attempt. In all other cases, just output Result=0 and exit. However, you must not write any additional answers when Result=0 is in the state.\n{batch_text}\n\n[ASSISTANT]\n"
-        prompt = f"[USER] The following is a part of a recent tcpdump. Analyze the content, and output 'Result=1' only if it is certain that there is a malicious hacking attempt, otherwise output 'Result=0'. (Never write any response other than 'Resutl=1' or 'Result=0')\n{batch_text}\n\n[ASSISTANT]\n"
         #prompt = f"USER: Here are the last {BATCH_SIZE} lines of the tcpdump -enni any output. Based on the packet flow, if a serious security risk is expected, describe the content, otherwise, output only \"n/a\".\n{batch_text}\n\nASSISTANT: "
         #prompt = f"USER: Here are the last {BATCH_SIZE} lines of the tcpdump -enni any output. Based on the packet flow, if a serious security risk is expected, describe the content in Korean, otherwise, output only \"n/a\".\n{batch_text}\n\nASSISTANT: "
         #prompt = f"[USER] Here are the last {BATCH_SIZE} lines of the tcpdump -enni any output. Based on the packet flow, if a serious security risk is expected, describe the content, otherwise, output only \"n/a\".\n{batch_text}\n\n[ASSISTANT]\n"
+        #prompt = f"[USER] The following is a part of a recent tcpdump. Analyze the content, and output 'Result=1' only if it is certain that there is a malicious hacking attempt, otherwise output 'Result=0'. (Never write any response other than 'Resutl=1' or 'Result=0')\n{batch_text}\n\n[ASSISTANT]\n"
+        prompt = f"""[USER]
+{system_prompt}
+
+{batch_text}
+
+[ASSISTANT]
+"""
+
         print("\n" + prompt, end="")
 
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(model.device)
