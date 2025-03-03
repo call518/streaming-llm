@@ -77,17 +77,22 @@ def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
     print(" ".join(generated_text[pos:]), flush=True)
     return past_key_values
 
+system_prompt = f"The following is a recent part of the Log file ({LOGFILE}). Analyze the content, and if there is an Error, Failed, or Warning related content, output 'ISSUE' and the review result of the content briefly, otherwise output only 'NORMAL'. Do not output any other response."
+
 @torch.no_grad()
 def streaming_inference(model, tokenizer, kv_cache=None, max_gen_len=1000):
     past_key_values = None
+    system_prompt_sent = False  # system_prompt가 이미 전송되었는지 여부 플래그
     for batch in get_tail_data():
         # � LLM에 전달할 프롬프트를 하나의 JSON으로 생성
         batch_text = "\n".join(batch)  # 30줄을 하나의 문자열로 변환
-        #prompt = f"USER: Below are the last {BATCH_SIZE} lines of {LOGFILE}. If there are any special notes, describe them in Korean.\n{batch_text}\n\nASSISTANT: "
-        #prompt = f"[USER] The following is a recent part of the Log file({LOGFILE}). Analyze the content, and if there is an Error, print only 'ERROR', otherwise print only 'NORMAL'. Do not print any other answers.\n{batch_text}\n\n[ASSISTANT]\n"
-        #prompt = f"[USER] The following is a recent part of the Log file {LOGFILE}. Analyze the content, and if there is any Error, Failed, or Warning related content, output 'ISSUE' and the result of reviewing the content, otherwise output only 'NORMAL'. Do not output any other response.\n{batch_text}\n\n[ASSISTANT]\n"
-        #prompt = f"\n\n[USER] The following is a recent part of the Log file {LOGFILE}. Analyze the content, and if there is an Error, Failed, or Warning related content, output 'ISSUE' and the review result of the content in concise form (50 characters or less), otherwise output only 'NORMAL'. Do not output any other response.\n============\n{batch_text}\n\n[ASSISTANT]\n============\n"
-        prompt = f"\n[USER] The following is a recent part of the Log file ({LOGFILE}). Analyze the content, and if there is an Error, Failed, or Warning related content, output 'ISSUE' and the review result of the content briefly, otherwise output only 'NORMAL'. Do not output any other response.\n{batch_text}\n\n[ASSISTANT]\n"
+
+        if not system_prompt_sent:
+            prompt = f"\n[USER]\n{system_prompt}\n{batch_text}\n\n[ASSISTANT]\n"
+            #system_prompt_sent = True  # 첫 배치 후에는 더 이상 시스템 프롬프트를 포함하지 않음
+        else:
+            prompt = f"\n[USER]\n{batch_text}\n\n[ASSISTANT]\n"
+
         print("\n" + prompt, end="")
 
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(model.device)
