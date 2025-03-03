@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# offload_folder
+offload/
+
 # C extensions
 *.so
 
